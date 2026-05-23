@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: dcmind-postgres
+    environment:
+      POSTGRES_USER: dcmind
+      POSTGRES_PASSWORD: dcmind
+      POSTGRES_DB: dcmind
+    ports:
+      - "5432:5432"
+    volumes:
+      - dcmind-pgdata:/var/lib/postgresql/data
+
+volumes:
+  dcmind-pgdata:

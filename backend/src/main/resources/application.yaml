@@ -1,3 +1,14 @@
 spring:
   application:
     name: dcmind-backend
+  datasource:
+    url: jdbc:postgresql://localhost:5432/dcmind
+    username: dcmind
+    password: dcmind
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
