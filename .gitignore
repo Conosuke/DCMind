@@ -45,8 +45,11 @@ logs/
 # ─── 테스트용 DICOM 원본 (대용량·PHI 우려로 미추적) ───
 test-data/
 
-# ─── Claude 에이전트 관련 ───
-CLAUDE.md
-CLAUDE.local.md
-.claude/
+# ─── Codex 로컬 설정 / 에이전트 상태 ───
+.codex/
+.codex-*
+AGENTS.md
+AGENTS.local.md
+docs/superpowers/
+docs/handoffs/
 .mcp.json
