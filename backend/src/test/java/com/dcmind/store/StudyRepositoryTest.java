@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.dcmind.support.RepositoryTest;
+import com.dcmind.support.TestDicomFixture;
 
 import java.util.Optional;
 
@@ -21,17 +22,21 @@ public class StudyRepositoryTest {
     void 스터디정보를_환자정보에_연결해_저장하고_조회한다() {
 
         // 테스트 환자 정보 생성
-        String patientId = "TEST-0001";
-        String patientName = "nux-lee";
-        Patient patient = patientRepository.save(new Patient(patientId, patientName));
+        Patient patient = patientRepository.save(
+            new Patient(
+                TestDicomFixture.PATIENT_ID,
+                TestDicomFixture.ISSUER_OF_PATIENT_ID,
+                TestDicomFixture.PATIENT_NAME));
 
         // 테스트 스터디 정보 생성
-        String studyInstanceUid = "1.2.3.4";
-        studyRepository.save(new Study(studyInstanceUid, patient));
+        studyRepository.save(
+            new Study(
+                TestDicomFixture.STUDY_INSTANCE_UID,
+                patient));
 
-        Optional<Study> found = studyRepository.findByStudyInstanceUid(studyInstanceUid);
+        Optional<Study> found = studyRepository.findByStudyInstanceUid(TestDicomFixture.STUDY_INSTANCE_UID);
 
         assertThat(found).isPresent();
-        assertThat(found.get().getPatient().getPatientId()).isEqualTo(patientId);
+        assertThat(found.get().getPatient().getPatientId()).isEqualTo(TestDicomFixture.PATIENT_ID);
     }
 }

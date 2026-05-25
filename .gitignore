@@ -8,16 +8,15 @@ backend/out/
 hs_err_pid*
 replay_pid*
 
-# ─── Node / TypeScript / React (frontend, mocks) ───
-node_modules/
-dist/
-build/
+# ─── .NET / WPF (client) ───
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+*.nupkg
 coverage/
-*.tsbuildinfo
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
 
 # ─── 환경 변수 / 시크릿 ───
 .env
@@ -45,7 +44,10 @@ logs/
 # ─── 테스트용 DICOM 원본 (대용량·PHI 우려로 미추적) ───
 test-data/
 
-# ─── Codex 로컬 설정 / 에이전트 상태 ───
+# ─── 에이전트 로컬 설정 / 상태 ───
+.claude/
+CLAUDE.md
+CLAUDE.local.md
 .codex/
 .codex-*
 AGENTS.md

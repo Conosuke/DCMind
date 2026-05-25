@@ -49,23 +49,30 @@ public class DicomParser {
             Attributes attrs = dicom.readDataset(); 
 
             // 필수 태그 검증 (없으면 거절)
+            requireTag(attrs, Tag.PatientID, "PatientID");
+            requireTag(attrs, Tag.IssuerOfPatientID, "IssuerOfPatientID");
+
             requireTag(attrs, Tag.StudyInstanceUID, "StudyInstanceUID");
             requireTag(attrs, Tag.SeriesInstanceUID, "SeriesInstanceUID");
             requireTag(attrs, Tag.SOPInstanceUID, "SOPInstanceUID");
+            requireTag(attrs, Tag.SOPClassUID, "SOPClassUID");
 
             // 파싱 된 데이터를 기반으로 ParsedInstance 객체 생성 후 리턴
             return new ParsedInstance(
                 attrs.getString(Tag.PatientID),
+                attrs.getString(Tag.IssuerOfPatientID),
                 attrs.getString(Tag.PatientName),
                 attrs.getString(Tag.StudyInstanceUID),
                 attrs.getString(Tag.SeriesInstanceUID),
                 attrs.getString(Tag.SOPInstanceUID),
+                attrs.getString(Tag.SOPClassUID),
                 attrs.getString(Tag.Modality),
                 transferSyntaxUid,
                 attrs.getInt(Tag.Rows, 0),
                 attrs.getInt(Tag.Columns, 0),
                 attrs.getInt(Tag.BitsAllocated, 0)
             );
+
         } catch (DicomStreamException e) {
             // DICOM 스트림 예외 발생 시, NotADicomFileException으로 래핑하여 던짐
             throw new NotADicomFileException(e);

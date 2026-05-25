@@ -1,91 +1,67 @@
-# Phase 1 구현 계획 — DICOM 코어 + 수신
+# Phase 1 구현 계획 — DICOM 코어 + DIMSE 서버
 
 > 스펙: `docs/specs/phase-1-dicom-core.md`
-> 진행 방식: 각 단위는 로컬 `AGENTS.md`의 **기능 단위 학습 루프**로 진행한다 —
-> Codex가 ① 테스트 코드 제시 → ② 구현 코드 제시 → ③ 설명(새 문법·엔진 특성 포함) → ④ 사용자 질의·이해 → ⑤ 사용자가 직접 심고 확인(Red→Green).
+> 진행 방식: 에이전트가 각 단위를 Red → Green → Refactor로 구현하고, 단위마다 변경 요약과 테스트 결과를 보고해 사용자 검토를 받는다. 스펙에 없는 정책은 구현 전에 사용자와 확정한다.
 >
-> 진행 상태: 1-1~1-3과 P0의 기본 스캐폴드는 완료했다. 1-4는 엔티티·마이그레이션·리포지토리 골격까지만 구현되어 있으며, 파일 저장·해시·멱등성·롤백은 아직 구현되지 않았다. 따라서 1-4를 재개하기 전에 단위 1-3R을 수행한다.
+> 진행 상태: 1-1~1-3, P0, 1-3R 완료. 1-4a 진행 중 — `DicomInstanceStorageService`의 신규 계층 저장은 통과, 같은 Study·Series 중복 SOP Instance 덮어쓰기 테스트가 Red 상태다.
 
 ---
 
-## 단위 1-1 — DICOM 데이터 모델 개념 학습 (코드 없음)
+## 완료된 단위
 
-- **무엇을**: DICOM 파일 구조와 정보 모델을 이해한다.
-- **왜**: 라이브러리(dcm4che)를 쓰더라도, 태그·VR·UID 계층을 모르면 파싱 결과를 해석할 수 없다. Phase 1 전체의 어휘를 여기서 만든다.
-- **학습 개념**: ① 파일 구조(preamble, DICM, File Meta, 데이터 엘리먼트) ② 태그(group,element)와 VR ③ Transfer Syntax(암시적/명시적 VR, 리틀 엔디안) ④ 정보 계층(Patient→Study→Series→Instance)과 3대 UID ⑤ DICOMweb 3형제(STOW/QIDO/WADO)의 역할.
-- **진행**: Claude가 자료를 단계별로 설명 → 사용자 질의응답.
-- **체크포인트**: 사용자가 "DICOM 파일을 열면 무엇이 어떤 순서로 나오는지"와 "UID 3개가 각각 무엇을 식별하는지"를 자기 말로 설명할 수 있다.
+- **1-1 DICOM 데이터 모델 정리**: 파일 구조, 태그·VR, 전송구문, Patient→Study→Series→Instance 계층과 UID.
+- **1-2 Gradle 프로젝트 + dcm4che 파싱 확인**: `backend/` Gradle 프로젝트, 샘플 파일에서 주요 태그 추출.
+- **1-3 도메인 모델 + 파싱 래퍼**: `ParsedInstance`, `DicomParser`. 비DICOM·필수 태그 누락·미지원 전송구문 거절.
+- **P0 Spring Boot + Postgres + Docker Compose**: Spring Boot 앱, Flyway V1~V4, Testcontainers 기반 리포지토리 테스트.
+- **1-3R 메타데이터·저장 계약 정렬**: 필수 태그 6종 검증, `IssuerOfPatientID`·`SOPClassUID` 추출, V5(patient issuer)·V6(instance SOP Class UID) 마이그레이션, 테스트 fixture(`TestDicomFixture`) 추출.
 
-## 단위 1-2 — Gradle 콘솔 프로젝트 + dcm4che 파싱 맛보기
+---
 
-- **무엇을**: `backend/`에 Gradle 프로젝트를 만들고, 순수 `main()` 콘솔에서 샘플 DICOM 파일을 dcm4che로 열어 주요 태그를 출력한다. (Spring 없음)
-- **왜**: 인프라 없이 Java·Gradle·dcm4che에 먼저 손을 데운다. "파싱이 된다"는 즉각적 성취가 이후 단위의 동력이 된다.
-- **학습 개념**: Gradle 프로젝트 구조(build.gradle, 의존성 선언), dcm4che 핵심 API(`DicomInputStream`, `Attributes`, `Tag` 상수), Java try-with-resources.
-- **진행 순서**: ① 샘플 비압축 DICOM 확보(공개 데이터, Claude가 출처 안내) ② Gradle 초기화 ③ 파싱 콘솔 코드(학습 루프) ④ 실행.
-- **체크포인트**: 콘솔에 PatientID·PatientName·StudyInstanceUID·Modality·Rows/Columns·TransferSyntaxUID가 출력된다.
-- *참고: 이 단위는 "맛보기"이므로 TDD 예외 — 다음 단위부터 테스트 먼저.*
+## 단위 1-4a — 메타데이터 계층 저장 + `SAME_SERIES` 정책
 
-## 단위 1-3 — 도메인 모델 + 파싱 래퍼 (TDD 시작)
+- **무엇을**: `DicomInstanceStorageService.store(ParsedInstance)` — Patient·Study·Series를 조회 후 없으면 생성하고 Instance를 저장한다. 중복 SOP Instance에 `SAME_SERIES` 정책을 적용한다.
+- **왜**: C-STORE 수신 경로가 호출할 저장 진입점. 프로토콜과 무관한 저장 규칙을 DIMSE 계층보다 먼저 확정한다.
+- **진행 순서**: ① 신규 계층 저장 (완료) ② 같은 Study·Series 중복 → Instance 메타데이터 덮어쓰기 (Red) ③ 다른 Study·Series 중복 → `DuplicateSopInstanceException`, 기존 계층 불변.
+- **완료 기준**: `DicomInstanceStorageServiceTest` 3개 시나리오 통과, 전체 테스트 통과.
+- **세부 계획**: `docs/superpowers/plans/2026-08-15-dicom-instance-ingestion.md` (로컬)
 
-- **무엇을**: 스펙 §3의 도메인 객체(Patient/Study/Series/Instance 메타)를 정의하고, "DICOM 스트림 → 도메인 객체" 변환기(파싱 래퍼)를 TDD로 만든다. dcm4che 타입은 이 패키지 밖으로 내보내지 않는다.
-- **왜**: 시스템 전체가 딛고 설 핵심 추상화. 래핑 경계(라이브러리 격리)라는 설계 원칙을 여기서 체득한다.
-- **학습 개념**: JUnit 5(테스트 구조, assertion), Java record, 패키지 경계 설계, 테스트 리소스(`src/test/resources`) 로딩, 예외 설계(필수 태그 누락·비DICOM·미지원 전송구문).
-- **진행 순서**: ① 정상 파일 파싱 테스트(Red) → 구현(Green) ② 필수 태그 누락 케이스 ③ 비DICOM 파일 케이스 ④ 미지원 전송구문 케이스.
-- **체크포인트**: `./gradlew test` 그린. 깨진 입력 3종이 의도한 예외로 거절된다.
+## 단위 1-4b — 원본 파일 저장 + SHA-256 + 롤백
 
-## 단위 1-3R — DICOM 메타데이터·저장 계약 정렬 (리팩터링)
+- **무엇을**: 파일 스토리지 서비스(경로 전략·임시 파일→최종 경로 이동), 저장 중 SHA-256·파일 크기 계산, Instance에 경로·크기·해시 기록(새 마이그레이션), DB 실패 시 파일 롤백. `SAME_SERIES` 덮어쓰기 시 파일 교체와 롤백 시 기존 파일 복원.
+- **왜**: 원본 없이 메타데이터만 있으면 C-GET으로 회수할 수 없다. 파일과 DB의 일관성이 PACS 무결성의 기준이다.
+- **진행 순서**: ① 파일 스토리지 단위 테스트(경로 전략, 해시·크기) ② 저장 서비스에 파일 저장 연결 ③ DB 실패 롤백 ④ 덮어쓰기 시 파일 교체·복원.
+- **완료 기준**: 정상 저장 / 덮어쓰기 / 충돌 거절 / DB 실패 롤백 통합 테스트 통과. 저장된 파일의 SHA-256이 DB 기록과 일치.
 
-- **무엇을**: 현재 `ParsedInstance`, JPA 엔티티, Flyway 스키마를 Phase 1 스펙 §3·§4와 대조하고, 1-4 저장 서비스에 필요한 메타데이터와 불변식을 먼저 정렬한다.
-- **왜**: 현재 구현은 4계층 관계 골격까지는 갖췄지만, 파일 경로·파일 크기·SHA-256·SOP Class UID 등 저장 유스케이스의 입력/출력 계약이 빠져 있다. 이 계약을 저장 서비스 구현 중에 바꾸면 테스트와 마이그레이션을 되돌리는 비용이 커진다.
-- **학습 개념**: 도메인 계약, 필수값과 선택값, 데이터베이스 마이그레이션의 전진 전용 원칙, 테스트 fixture, 저장소 불변식.
-- **진행 순서**: ① 스펙 필드와 현재 모델 차이 표 작성 ② `PatientID`의 파서·DB 필수성 정책 확정 ③ 누락 메타데이터에 대한 파서 테스트 추가 ④ 기존 V1~V4를 수정하지 않고 V5 이후 마이그레이션 추가 ⑤ 반복되는 리포지토리 테스트 데이터를 fixture로 추출 ⑥ 전체 테스트 실행.
-- **불변식**: `SOPInstanceUID`는 전역 유일, Series는 하나의 Study에만 연결, Study는 하나의 Patient에만 연결, 원본 경로·파일 크기·SHA-256은 인스턴스 저장 전에 항상 확보한다.
-- **외부 문서**: dcm4che·Spring Data JPA·Flyway를 실제 구현 전에 정확한 사용 버전의 공식 문서로 확인하고 로컬 hand-off에 URL과 버전을 기록한다. Flyway의 기존 versioned migration은 변경하지 않고 새 migration으로 전진한다.
-- **체크포인트**: 파싱 결과와 DB 스키마가 저장 스펙의 필요한 필드를 표현하고, 새 마이그레이션을 포함한 통합 테스트가 통과한다.
+## 단위 1-5 — DIMSE 서버 기반 + C-ECHO
 
-## 단위 P0 (Phase 0 삽입) — Spring Boot + Postgres + Docker Compose
+- **무엇을**: dcm4che-net `Device`·`ApplicationEntity`·`Connection`을 Spring Bean으로 구성하고 앱 생명주기에 맞춰 시작·종료. AE Title·포트·호출 AE 허용 목록을 `application.yml` 설정으로. Verification SCP.
+- **왜**: 이후 모든 DIMSE 서비스가 올라갈 기반. 설정과 생명주기를 먼저 고정한다.
+- **진행 순서**: ① 테스트용 SCU로 C-ECHO 성공 테스트 ② 허용 목록 밖 AE Title 거절 테스트 ③ 비압축 외 전송구문 거절 테스트.
+- **완료 기준**: 통합 테스트 통과, 로컬에서 `echoscu -c DCMIND@localhost:11112` 성공.
 
-- **무엇을**: 콘솔 프로젝트를 Spring Boot 앱으로 승격하고, Docker Compose로 Postgres를 띄워 연결한다.
-- **왜**: 1-4부터는 DB와 HTTP가 필요하다. 학습 관성이 붙은 지금이 인프라를 얹을 적기.
-- **학습 개념**: Spring Boot 구조(@SpringBootApplication, 자동 설정, application.yml), 의존성 주입(DI)과 Bean, Docker Compose 기초, Spring 프로파일.
-- **진행 순서**: ① Spring Boot 의존성 전환(보일러플레이트 성격 — 요청 시 Claude가 생성 가능) ② docker-compose.yml(Postgres) ③ DB 연결 확인.
-- **체크포인트**: `docker compose up` 후 앱이 기동되고 Postgres 연결 로그가 정상.
-- *Phase 0의 나머지(JWT 인증, CI)는 Phase 1 완료 후 별도 진행.*
+## 단위 1-6 — C-STORE SCP
 
-## 단위 1-4 — 저장 계층: 파일 스토리지 + 해시 + 저장 오케스트레이션
+- **무엇을**: Storage SCP. 수신 데이터셋 → `DicomParser` → 저장 서비스 → DIMSE 상태 응답. 수락 Storage SOP Class 목록 확정.
+- **왜**: 모달리티가 PACS로 영상을 보내는 표준 경로.
+- **진행 순서**: ① 단일 인스턴스 저장 성공 ② 다중 인스턴스(한 association) ③ 거절 케이스 — 필수 태그 누락, 중복 SOP 충돌, 저장 실패. 각 상태 코드 값은 시작 시 PS3.4 Annex B·PS3.7 Annex C로 확정.
+- **완료 기준**: 통합 테스트 통과, `storescu`로 `test-data/` 스터디 전송 → DB·스토리지 반영 확인.
 
-- **무엇을**: 4계층 JPA 엔티티·리포지토리, 원본 파일 저장(경로 전략), SHA-256 계산·기록, "파일 먼저→DB 커밋→실패 시 파일 롤백" 저장 서비스를 TDD로.
-- **왜**: PACS의 본체. 트랜잭션 경계·멱등성·무결성이라는 백엔드 핵심 주제가 전부 등장한다.
-- **학습 개념**: JPA 엔티티/연관관계(@ManyToOne 등)·unique 제약, @Transactional 동작 원리, upsert 패턴, MessageDigest(SHA-256), 통합 테스트와 Testcontainers.
-- **진행 순서**: ① 1-3R에서 정렬한 엔티티·리포지토리 계약 확인 ② 파일 스토리지 서비스 ③ 저장 오케스트레이션(해시·멱등·충돌·롤백 케이스별 테스트 먼저).
-- **체크포인트**: 파싱→저장 통합 테스트 그린 — 정상 저장 / 동일 해시 재수신 멱등 / 상이 해시 409 / DB 실패 시 파일 롤백.
+## 단위 1-7 — C-FIND SCP
 
-## 단위 1-5 — STOW-RS 수신 엔드포인트
+- **무엇을**: Study Root Query/Retrieve – FIND. STUDY·SERIES·IMAGE 레벨, 단일 값·와일드카드·날짜 범위·UID 목록 매칭, C-CANCEL 처리. 반환 속성 목록 확정.
+- **왜**: 저장한 것을 찾을 수 있어야 PACS다. Phase 2 클라이언트 검색 화면이 이 서비스를 사용한다.
+- **진행 순서**: ① STUDY 레벨 PatientID 검색 ② 와일드카드·날짜 범위 ③ SERIES·IMAGE 레벨 ④ 0건·C-CANCEL.
+- **완료 기준**: 통합 테스트 통과, `findscu`로 저장한 스터디 검색.
 
-- **무엇을**: `POST /dicomweb/studies` — multipart/related 파싱, 파트별 수신→검증→저장, 성공/실패 목록 응답.
-- **왜**: 첫 HTTP 관문. 스펙 §5.1·§6의 에러 정책이 실제 API 응답으로 구현된다.
-- **학습 개념**: Spring MVC(@RestController, 요청 매핑), multipart/related 처리, HTTP 상태 코드 설계, MockMvc/통합 테스트로 API 검증.
-- **진행 순서**: ① 단일 파트 성공 케이스(테스트 먼저) ② 다중 파트 ③ 거절 케이스들(비DICOM·태그 누락·미지원 전송구문·해시 충돌).
-- **체크포인트**: curl로 실제 파일 업로드 → 200 + 결과 JSON, DB·스토리지에 반영 확인.
+## 단위 1-8 — C-GET SCP
 
-## 단위 1-6 — QIDO-RS 조회 API
-
-- **무엇을**: 스터디 검색(`GET /dicomweb/studies?PatientID=...`)과 하위 시리즈/인스턴스 목록, DICOM JSON(PS3.18) 직렬화, 페이징.
-- **왜**: "저장한 것을 찾을 수 있어야 PACS다". Phase 2 뷰어와 Phase 4 에이전트가 이 API를 소비한다.
-- **학습 개념**: JPA 동적 조건 쿼리, DICOM JSON 모델 구조, DTO 매핑, 반환 속성 집합 확정(스펙 §9).
-- **진행 순서**: ① 스터디 검색(테스트 먼저) ② 시리즈/인스턴스 목록 ③ 페이징·빈 결과·404.
-- **체크포인트**: 업로드한 스터디가 PatientID 검색으로 DICOM JSON 형식으로 조회된다.
-
-## 단위 1-7 — WADO-RS 검색 API
-
-- **무엇을**: 인스턴스 원본 반환(`application/dicom`)과 메타데이터 JSON 반환.
-- **왜**: 조회의 마지막 조각이자 Phase 2 뷰어의 데이터 공급선.
-- **학습 개념**: 파일 스트리밍 응답(Resource), Content-Type 협상, 대용량 응답 처리.
-- **진행 순서**: ① 메타데이터 엔드포인트 ② 원본 파일 반환 ③ 404·경로 무결성 케이스.
-- **체크포인트**: **Phase 1 완료 데모** — STOW로 올린 파일이 QIDO로 검색되고 WADO로 바이트 동일하게(해시 일치) 회수된다. 전 과정 통합 테스트 그린.
+- **무엇을**: Study Root Query/Retrieve – GET. STUDY·SERIES·IMAGE 레벨 회수, 같은 association 위 C-STORE 하위 작업, Pending 응답의 하위 작업 카운트, 일부 실패 처리.
+- **왜**: Phase 2 클라이언트 뷰어의 데이터 공급선.
+- **진행 순서**: ① IMAGE 레벨 단일 회수 ② SERIES·STUDY 레벨 ③ 하위 작업 실패·파일 누락 케이스.
+- **완료 기준**: **Phase 1 완료 데모** — C-STORE로 보낸 파일이 C-FIND로 검색되고 C-GET으로 SHA-256이 같은 파일로 회수된다. 전 과정 통합 테스트 통과.
 
 ---
 
 ## 완료 기준 (스펙 §1과 동일)
 
-1. STOW-RS 업로드 → 파싱·저장 ✅  2. QIDO-RS 검색 ✅  3. WADO-RS 회수 ✅  4. 전 과정 자동 테스트 ✅
+1. C-ECHO 성공  2. C-STORE → 파싱·저장  3. C-FIND 검색  4. C-GET 회수(해시 일치)  5. 전 과정 자동 테스트

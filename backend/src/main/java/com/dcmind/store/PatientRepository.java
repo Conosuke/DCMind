@@ -9,5 +9,5 @@ import java.util.Optional;
 public interface PatientRepository extends JpaRepository<Patient, Long> {
 
     // 환자 ID로 환자 정보를 조회
-    Optional<Patient> findByPatientId(String patientId);
+    Optional<Patient> findByPatientIdAndIssuerOfPatientId(String patientId, String issuerOfPatientId);
 }

@@ -31,9 +31,13 @@ public class Instance extends BaseEntity {
     @Column(name = "transfer_syntax_uid")
     private String transferSyntaxUid;
 
-    public Instance(String sopInstanceUid, Series series, Integer rows, Integer columns,
-                    Integer bitsAllocated, String transferSyntaxUid) {
+    @Column(name = "sop_class_uid")
+    private String sopClassUid;
+
+    public Instance(String sopInstanceUid, String sopClassUid, Integer rows, Integer columns,
+                    Integer bitsAllocated, String transferSyntaxUid, Series series) {
         this.sopInstanceUid = sopInstanceUid;
+        this.sopClassUid = sopClassUid;
         this.series = series;
         this.rows = rows;
         this.columns = columns;
