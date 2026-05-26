@@ -1,5 +1,7 @@
 package com.dcmind.dicom.ingest;
 
+import java.util.Optional;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +39,29 @@ public class DicomInstanceStorageService {
 
     @Transactional // 메서드 실행 중 발생하는 모든 데이터베이스 작업을 하나의 트랜잭션으로 묶음. 예외 발생 시 롤백.
     public Instance store(ParsedInstance parsedInstance) {
+
+        // 중복 SOP Instance 정책(SAME_SERIES)은 상위 계층을 만들기 전에 판정한다.
+        // 거절할 요청이 Patient·Study·Series를 먼저 생성하지 않게 하기 위함.
+        Optional<Instance> existing = instanceRepository.findBySopInstanceUid(parsedInstance.sopInstanceUid());
+        if (existing.isPresent()) {
+            Instance instance = existing.get();
+
+            // Study UID 또는 Series UID가 다르면 충돌로 거절한다.
+            if (!isSameStudyAndSeries(instance, parsedInstance)) {
+                throw new DuplicateSopInstanceException(parsedInstance.sopInstanceUid());
+            }
+
+            // 같은 Study·Series면 메타데이터를 덮어쓴다.
+            // 조회한 엔티티는 영속성 컨텍스트가 관리하므로, 필드 변경만으로 flush 시 UPDATE가 실행된다(변경 감지).
+            instance.overwriteMetadata(
+                parsedInstance.sopClassUid(),
+                parsedInstance.rows(),
+                parsedInstance.columns(),
+                parsedInstance.bitsAllocated(),
+                parsedInstance.transferSyntaxUid()
+            );
+            return instance;
+        }
 
         // 환자 정보 조회 또는 생성
         Patient patient = patientRepository
@@ -83,5 +108,12 @@ public class DicomInstanceStorageService {
 
         // 인스턴스 정보 저장 후 저장된 인스턴스 반환
         return instanceRepository.save(instance);
+    }
+
+    // 기존 인스턴스가 수신 인스턴스와 같은 Study·Series에 속하는지 확인
+    private static boolean isSameStudyAndSeries(Instance existing, ParsedInstance incoming) {
+        Series series = existing.getSeries();
+        return series.getSeriesInstanceUid().equals(incoming.seriesInstanceUid())
+            && series.getStudy().getStudyInstanceUid().equals(incoming.studyInstanceUid());
     }
 }

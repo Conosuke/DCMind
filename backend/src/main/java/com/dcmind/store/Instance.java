@@ -44,4 +44,15 @@ public class Instance extends BaseEntity {
         this.bitsAllocated = bitsAllocated;
         this.transferSyntaxUid = transferSyntaxUid;
     }
+
+    // 같은 Study·Series로 재전송된 인스턴스의 메타데이터를 새 값으로 덮어쓴다(SAME_SERIES 정책).
+    // SOP Instance UID와 소속 Series는 바꾸지 않는다.
+    public void overwriteMetadata(String sopClassUid, int rows, int columns,
+                                  int bitsAllocated, String transferSyntaxUid) {
+        this.sopClassUid = sopClassUid;
+        this.rows = rows;
+        this.columns = columns;
+        this.bitsAllocated = bitsAllocated;
+        this.transferSyntaxUid = transferSyntaxUid;
+    }
 }
