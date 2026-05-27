@@ -1,7 +1,7 @@
 # DCMind — 프로젝트 개요
 
 AI 에이전트를 갖춘 PACS(Picture Archiving and Communication System). WPF 데스크톱 클라이언트와 PACS 서버로 구성한다.
-포트폴리오 프로젝트이며, 아키텍처는 실사용 확장이 가능하도록 진지하게 설계한다.
+포트폴리오 프로젝트이며, 아키텍처는 실사용 확장이 가능하도록 진지하게 설계한다. 최우선 목적은 **학습**.
 
 > 작업 규칙은 루트의 `CLAUDE.md` 참고(로컬 전용, git 미추적). 이 문서와 `docs/`는 **프로젝트 내용**(개요·결정·로드맵·스펙)을 담는다.
 
@@ -11,8 +11,8 @@ AI 에이전트를 갖춘 PACS(Picture Archiving and Communication System). WPF 
 
 | 항목 | 결정 |
 |---|---|
-| 목적 | 포트폴리오 (실사용 확장 열어둠) |
-| 진행 방식 | 에이전트가 구현, 사용자가 설계·변경 검토 |
+| 목적 | 포트폴리오 (실사용 확장 열어둠), 학습 우선 |
+| 진행 방식 | 에이전트가 구현·설명, 사용자는 설계 결정 참여·코드 리뷰·이해도 점검으로 학습 |
 | 시스템 구성 | **PACS 서버 + WPF 데스크톱 클라이언트** |
 | 서버 | **Java / Spring Boot** — 한 프로세스가 DIMSE 포트와 HTTP 포트를 함께 연다 |
 | DICOM 파싱 | **dcm4che** 라이브러리 사용, 그 위 계층(저장 구조·인덱싱·조회)을 직접 설계·구현 |
@@ -91,7 +91,7 @@ DCMind/
 │  ├─ design/                 # 디자인 가이드 (토큰·컴포넌트·원칙)
 │  ├─ erd/                    # 데이터 모델 다이어그램
 │  ├─ specs/                  # Phase별 설계 스펙 (예: phase-1-dicom-core.md)
-│  └─ plans/                  # Phase별 구현 계획 (작업 단위 로드맵)
+│  └─ plans/                  # Phase별 구현 계획 (작업 단위·학습 포인트)
 │
 ├─ prototype/                 # 화면 레이아웃 기준 (worklist·viewer·admin HTML 목업)
 │

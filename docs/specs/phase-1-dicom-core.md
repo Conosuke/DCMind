@@ -124,7 +124,7 @@ Patient (PatientID + IssuerOfPatientID‡, PatientName, BirthDate, Sex)
 | 1-3 | 도메인 모델 + 파싱 래퍼 | 완료 | 파싱 유닛 테스트 통과 |
 | P0 | Spring Boot + Postgres + Docker Compose | 완료 | 앱 기동 + DB 연결 |
 | 1-3R | 메타데이터·저장 계약 정렬 | 완료 | V5·V6 마이그레이션 포함 테스트 통과 |
-| 1-4a | 메타데이터 계층 저장 + `SAME_SERIES` 정책 | 진행 중 | 저장 서비스 통합 테스트 통과 |
+| 1-4a | 메타데이터 계층 저장 + `SAME_SERIES` 정책 | 완료 | 저장 서비스 통합 테스트 통과 |
 | 1-4b | 원본 파일 저장 + SHA-256 + 롤백 | 예정 | 파일·DB 일관성 통합 테스트 통과 |
 | 1-5 | DIMSE 서버 기반 + C-ECHO | 예정 | `echoscu` 성공 |
 | 1-6 | C-STORE SCP | 예정 | `storescu` 전송 → 저장 |
